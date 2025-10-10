@@ -260,14 +260,14 @@ def cal_block_index(fix_blocks, sorted_bboxes):
                     block['lines'] = copy.deepcopy(block['real_lines'])
                     del block['real_lines']
     else:
-        # 使用xycut排序
+        # Sorting using XY-cut
         block_bboxes = []
         for block in fix_blocks:
-            # 如果block['bbox']任意值小于0，将其置为0
+            # If any value of block['bbox'] is less than 0, set it to 0
             block['bbox'] = [max(0, x) for x in block['bbox']]
             block_bboxes.append(block['bbox'])
 
-            # 删除图表body block中的虚拟line信息, 并用real_lines信息回填
+            # Delete the virtual line information in the chart body block and fill it back with real_lines information
             if block['type'] in [BlockType.IMAGE_BODY, BlockType.TABLE_BODY, BlockType.TITLE, BlockType.INTERLINE_EQUATION]:
                 if 'real_lines' in block:
                     block['virtual_lines'] = copy.deepcopy(block['lines'])

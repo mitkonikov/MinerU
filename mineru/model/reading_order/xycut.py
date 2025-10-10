@@ -5,14 +5,16 @@ import numpy as np
 
 def projection_by_bboxes(boxes: np.array, axis: int) -> np.ndarray:
     """
-     通过一组 bbox 获得投影直方图，最后以 per-pixel 形式输出
+    Get the projection histogram through a set of bboxes and finally output it in per-pixel form
 
     Args:
         boxes: [N, 4]
-        axis: 0-x坐标向水平方向投影， 1-y坐标向垂直方向投影
+        axis:   0-x coordinate is projected horizontally,
+                1-y coordinate is projected vertically
 
     Returns:
-        1D 投影直方图，长度为投影方向坐标的最大值(我们不需要图片的实际边长，因为只是要找文本框的间隔)
+        1D projection histogram, where the length is the maximum value of the projection direction coordinate
+        (we don't need the actual side length of the image, because we only want to find the spacing of the text boxes)
 
     """
     assert axis in [0, 1]
@@ -73,18 +75,16 @@ def recursive_xy_cut(boxes: np.ndarray, indices: List[int], res: List[int]):
 
     Args:
         boxes: (N, 4)
-        indices: 递归过程中始终表示 box 在原始数据中的索引
-        res: 保存输出结果
+        indices: The recursive process always represents the index of the box in the original data
+        res: Save the output results
 
     """
-    # 向 y 轴投影
+    # Projection onto the Y-axis
     assert len(boxes) == len(indices)
 
     _indices = boxes[:, 1].argsort()
     y_sorted_boxes = boxes[_indices]
     y_sorted_indices = indices[_indices]
-
-    # debug_vis(y_sorted_boxes, y_sorted_indices)
 
     y_projection = projection_by_bboxes(boxes=y_sorted_boxes, axis=1)
     pos_y = split_projection_profile(y_projection, 0, 1)
@@ -93,7 +93,8 @@ def recursive_xy_cut(boxes: np.ndarray, indices: List[int], res: List[int]):
 
     arr_y0, arr_y1 = pos_y
     for r0, r1 in zip(arr_y0, arr_y1):
-        # [r0, r1] 表示按照水平切分，有 bbox 的区域，对这些区域会再进行垂直切分
+        # [r0, r1] means that the area with bbox will be split
+        # vertically according to the horizontal segmentation.
         _indices = (r0 <= y_sorted_boxes[:, 1]) & (y_sorted_boxes[:, 1] < r1)
 
         y_sorted_boxes_chunk = y_sorted_boxes[_indices]
@@ -103,7 +104,7 @@ def recursive_xy_cut(boxes: np.ndarray, indices: List[int], res: List[int]):
         x_sorted_boxes_chunk = y_sorted_boxes_chunk[_indices]
         x_sorted_indices_chunk = y_sorted_indices_chunk[_indices]
 
-        # 往 x 方向投影
+        # Projection in the X direction
         x_projection = projection_by_bboxes(boxes=x_sorted_boxes_chunk, axis=0)
         pos_x = split_projection_profile(x_projection, 0, 1)
         if not pos_x:
@@ -111,11 +112,13 @@ def recursive_xy_cut(boxes: np.ndarray, indices: List[int], res: List[int]):
 
         arr_x0, arr_x1 = pos_x
         if len(arr_x0) == 1:
-            # x 方向无法切分
-            res.extend(x_sorted_indices_chunk)
+            # The x direction cannot be split
+            # Take the result from sorted by y direction,
+            # since reading order is top to bottom, left to right
+            res.extend(y_sorted_indices_chunk)
             continue
 
-        # x 方向上能分开，继续递归调用
+        # Can be separated in the x direction, continue to call recursively
         for c0, c1 in zip(arr_x0, arr_x1):
             _indices = (c0 <= x_sorted_boxes_chunk[:, 0]) & (
                 x_sorted_boxes_chunk[:, 0] < c1
