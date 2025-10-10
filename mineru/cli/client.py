@@ -162,7 +162,11 @@ def main(
             if virtual_vram is not None:
                 return virtual_vram
             if get_device_mode().startswith("cuda") or get_device_mode().startswith("npu"):
-                return round(get_vram(get_device_mode()))
+                vram = get_vram(get_device_mode())
+                if vram is None:
+                    logger.warning("Warning: Cannot get the VRAM size. This can happen if you are using a CPU-only version of PyTorch, while specifying the cuda flag.")
+                    return 1
+                return round(vram)
             return 1
         if os.getenv('MINERU_VIRTUAL_VRAM_SIZE', None) is None:
             os.environ['MINERU_VIRTUAL_VRAM_SIZE']= str(get_virtual_vram_size())
