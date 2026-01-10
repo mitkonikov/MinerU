@@ -230,6 +230,8 @@ def atom_model_init(model_name: str, **kwargs):
 
 class MineruPipelineModel:
     def __init__(self, **kwargs):
+        print("Running the modified MinerU version...")
+
         self.formula_config = kwargs.get('formula_config')
         self.apply_formula = self.formula_config.get('enable', True)
         self.table_config = kwargs.get('table_config')
