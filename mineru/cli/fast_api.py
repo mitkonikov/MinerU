@@ -444,6 +444,8 @@ def build_result_dict(
     return_model_output: bool,
     return_content_list: bool,
     return_images: bool,
+    return_spans: bool,
+    return_layout: bool,
 ) -> dict[str, dict[str, Any]]:
     result_dict: dict[str, dict[str, Any]] = {}
     for pdf_name in pdf_file_names:
@@ -478,6 +480,14 @@ def build_result_dict(
                 ): f"data:{get_image_mime_type(image_path)};base64,{encode_image(image_path)}"
                 for image_path in image_paths
             }
+        if return_spans:
+            span_pdf_path = os.path.join(parse_dir, f"{pdf_name}_span.pdf")
+            if os.path.exists(span_pdf_path):
+                data["span_pdf"] = f"data:application/pdf;base64,{encode_image(span_pdf_path)}"
+        if return_layout:
+            layout_pdf_path = os.path.join(parse_dir, f"{pdf_name}_layout.pdf")
+            if os.path.exists(layout_pdf_path):
+                data["layout_pdf"] = f"data:application/pdf;base64,{encode_image(layout_pdf_path)}"
     return result_dict
 
 
@@ -500,6 +510,8 @@ def create_result_zip(
     return_content_list: bool,
     return_images: bool,
     return_original_file: bool,
+    return_spans: bool,
+    return_layout: bool,
 ) -> str:
     zip_fd, zip_path = tempfile.mkstemp(suffix=".zip", prefix="mineru_results_")
     os.close(zip_fd)
@@ -602,6 +614,30 @@ def create_result_zip(
                             path.name,
                         ),
                     )
+
+            if return_spans:
+                path = os.path.join(parse_dir, f"{pdf_name}_span.pdf")
+                if os.path.exists(path):
+                    zf.write(
+                        path,
+                        arcname=build_zip_arcname(
+                            pdf_name,
+                            parse_dir,
+                            f"{pdf_name}_span.pdf",
+                        ),
+                    )
+
+            if return_layout:
+                path = os.path.join(parse_dir, f"{pdf_name}_layout.pdf")
+                if os.path.exists(path):
+                    zf.write(
+                        path,
+                        arcname=build_zip_arcname(
+                            pdf_name,
+                            parse_dir,
+                            f"{pdf_name}_layout.pdf",
+                        ),
+                    )
     return zip_path
 
 
@@ -627,6 +663,8 @@ async def build_result_response(
     return_model_output: bool,
     return_content_list: bool,
     return_images: bool,
+    return_spans: bool,
+    return_layout: bool,
     response_format_zip: bool,
     return_original_file: bool,
     zip_filename: str = "results.zip",
@@ -645,6 +683,8 @@ async def build_result_response(
                 return_content_list=return_content_list,
                 return_images=return_images,
                 return_original_file=return_original_file,
+                return_spans=return_spans,
+                return_layout=return_layout,
             )
         )
         try:
@@ -671,6 +711,8 @@ async def build_result_response(
         return_model_output=return_model_output,
         return_content_list=return_content_list,
         return_images=return_images,
+        return_spans=return_spans,
+        return_layout=return_layout,
     )
     return JSONResponse(
         status_code=status_code,
@@ -711,6 +753,8 @@ async def build_sync_file_parse_response(
             return_model_output=task.return_model_output,
             return_content_list=task.return_content_list,
             return_images=task.return_images,
+            return_spans=True,
+            return_layout=True,
             response_format_zip=task.response_format_zip,
             return_original_file=task.return_original_file,
             zip_filename=f"{task.task_id}.zip",
@@ -732,6 +776,8 @@ async def build_sync_file_parse_response(
         return_model_output=task.return_model_output,
         return_content_list=task.return_content_list,
         return_images=task.return_images,
+        return_spans=True,
+        return_layout=True,
     )
     return JSONResponse(
         status_code=200,
@@ -841,8 +887,8 @@ async def run_parse_job(
         table_enable=request_options.table_enable,
         image_analysis=request_options.image_analysis,
         server_url=request_options.server_url,
-        f_draw_layout_bbox=False,
-        f_draw_span_bbox=False,
+        f_draw_layout_bbox=True,
+        f_draw_span_bbox=True,
         f_dump_md=request_options.return_md,
         f_dump_middle_json=request_options.return_middle_json,
         f_dump_model_output=request_options.return_model_output,
@@ -1343,6 +1389,8 @@ async def get_async_task_result(
         return_model_output=task.return_model_output,
         return_content_list=task.return_content_list,
         return_images=task.return_images,
+        return_spans=True,
+        return_layout=True,
         response_format_zip=task.response_format_zip,
         return_original_file=task.return_original_file,
         zip_filename=f"{task.task_id}.zip",
@@ -1351,6 +1399,7 @@ async def get_async_task_result(
 
 @app.get(path="/health")
 async def health_check():
+    print("Received health check request")
     task_manager = getattr(app.state, "task_manager", None)
     if task_manager is None or not task_manager.is_healthy():
         return JSONResponse(
